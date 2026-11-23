@@ -17,7 +17,7 @@
    4) Classe Player (gestisce <audio>)
    5) localStorage helpers (history, favourites)
    6) Render sidebar e player footer
-   7) Inizializzazione al DOMContentLoaded
+   7) Inizializzazione al DOMContentLoaded 
 
    ESEMPIO USO DELL'ELEMENTO <audio>
    --------------------------------
