@@ -564,6 +564,8 @@ button {
   width: 0%;
   background: var(--text-primary);
   border-radius: 2px;
+  pointer-events: none; /* rileva il click sulla barra principale */
+  transition: width 0.2s ease;
 }
 .progress-bar:hover .progress-fill,
 .volume-bar:hover .volume-fill {
