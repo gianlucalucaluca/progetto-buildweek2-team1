@@ -30,6 +30,26 @@ const tracklist  = document.querySelector("#tracklist");
 
 const loadAlbum = async () => {
   // TODO: implementare come da elenco sopra
+
+  /*
+ tracks.forEach((track) => {
+  const row = document.createElement("div");
+
+  row.classList.add("track-row");
+  row.dataset.trackId = track.id;
+
+  // Creazione degli elementi interni della riga
+
+  row.addEventListener("click", () => {
+    player.play(track);
+  });
+
+  tracklist.appendChild(row);
+}); 
+*/
+
 };
+
+
 
 loadAlbum();

@@ -158,7 +158,7 @@ class Artist {
   constructor(raw) {
     this.id = raw.artistId;
     this.name = raw.artistName;
-    this.genre = raw.primaryGenreName;
+    this.genre = raw.primaryGenreName ?? 'Genere sconosciuto';
   }
 }
 
@@ -167,7 +167,7 @@ class Player {
   constructor() {
     this.audio = document.querySelector("#audio-element");
     this.currentTrack;
-    this.isPlaying = false; //stato della riproduzione non attivo 
+    this.isPlaying = false; //stato della riproduzione non attivo
 
     //richiamiamo una proprietà che esiste, ma non ha ancora un valore assegnato
     this.cover;
@@ -185,11 +185,12 @@ class Player {
     this.timeTotal;
     this.progressBar;
     this.progressFill;
+    this.volumeIcon;
     this.volumeBar;
     this.volumeFill;
   }
 
-  //metondo mount() renderizza il footer a schermo 
+  //metondo mount() renderizza il footer a schermo
   mount() {
     const footer = document.querySelector(".player");
     if (!footer) return;
@@ -313,8 +314,10 @@ class Player {
     const playerRight = document.createElement("div");
     playerRight.classList.add("player-right");
 
-    const volumeIcon = document.createElement("span");
+    const volumeIcon = document.createElement("button");
+    volumeIcon.classList.add("btn-ctrl");
     volumeIcon.textContent = "🔊";
+    volumeIcon.id = "volume-icon";
 
     const volumeBar = document.createElement("div");
     volumeBar.classList.add("volume-bar");
@@ -323,7 +326,7 @@ class Player {
     const volumeFill = document.createElement("div");
     volumeFill.classList.add("volume-fill");
     volumeFill.id = "volume-fill";
-    volumeFill.style.width = "80%";
+    volumeFill.style.width = "40%";
 
     volumeBar.appendChild(volumeFill);
 
@@ -346,10 +349,25 @@ class Player {
     this.progressFill = document.querySelector("#progress-fill");
     this.volumeBar = document.querySelector("#volume-bar");
     this.volumeFill = document.querySelector("#volume-fill");
+    this.volumeIcon = document.querySelector("#volume-icon");
 
-    this.setVolume(0.8); // volume iniziale 80%
+    this.previousVolume = 0.4;
+    this.setVolume(0.4); // volume iniziale 40%
     this._bindEvents();
+
+    //refresh con ultimo brano in play
+    const lastTrack = getHistory()[0];
+    if (lastTrack) {
+      this.currentTrack = lastTrack;
+      this.audio.src = lastTrack.previewUrl || "";
+      this.cover.src = bigArt(lastTrack.cover);
+      this.cover.alt = lastTrack.title;
+      this.title.textContent = lastTrack.title;
+      this.artist.textContent = lastTrack.artist;
+      this.timeTotal.textContent = formatTime(lastTrack.durationMs);
+    }
   }
+
   // metodo che collega gli event listener
   _bindEvents() {
     //evento 1 = play/pausa
@@ -395,7 +413,7 @@ class Player {
         const duration = this.audio.duration || 0;
 
         if (this.timeCurrent) {
-          this.timeCurrent.textContent = formatTime(current * 1000); // formattiamo il tempo da ms in sec 
+          this.timeCurrent.textContent = formatTime(current * 1000); // formattiamo il tempo da ms in sec
         }
 
         if (this.progressFill) {
@@ -404,7 +422,19 @@ class Player {
         }
       });
 
-      //evento 5 = quando termina la produzione ripristina graficamente il player
+      //evento 5 = click icona volume
+      if (this.volumeIcon) {
+        this.volumeIcon.addEventListener("click", () => {
+          if (this.audio.volume > 0) {
+            this.previousVolume = this.audio.volume;
+            this.setVolume(0);
+          } else {
+            this.setVolume(this.previousVolume);
+          }
+        });
+      }
+
+      //evento 6 = quando termina la produzione ripristina graficamente il player
       this.audio.addEventListener("ended", () => {
         this.isPlaying = false;
         if (this.btnToggle) {
@@ -421,7 +451,7 @@ class Player {
     }
   }
 
-  // il metodo play(), riceve come parametro 'track' oggetto che contiene le informazioni della canzone  
+  // il metodo play(), riceve come parametro 'track' oggetto che contiene le informazioni della canzone
   play(track) {
     if (!track || !this.audio) return;
 
@@ -450,12 +480,12 @@ class Player {
       this.btnToggle.textContent = "⏸";
     }
 
-    // aggiorna la cronologia 
+    // aggiorna la cronologia
     if (typeof addToHistory === "function") {
       addToHistory(track);
     }
 
-    //aggiorna lo stato grafico 
+    //aggiorna lo stato grafico
     this._updateTrackRows();
   }
 
@@ -482,23 +512,26 @@ class Player {
     this._updateTrackRows();
   }
 
-  // metodo della gestione del volume, il valore 'v' reappresenta il volume desiderato 
+  // metodo della gestione del volume, il valore 'v' reappresenta il volume desiderato
   setVolume(v) {
-    const clamped = Math.max(0, Math.min(1, v)); 
+    const clamped = Math.max(0, Math.min(1, v));
     /* il volume è compreso tra 0 e 1,   
     Math.min() restituisce il valore più piccolo tra 1 e v,
     Math.max restituisce il valore più grande tra 0 e il risultato di Math.min,
     esempio: v = 1.5, Math.min = 1, Math.max = 1, volume finale = 100%
-    */ 
+    */
     if (this.audio) {
       this.audio.volume = clamped;
     }
     if (this.volumeFill) {
       this.volumeFill.style.width = `${clamped * 100}%`;
     }
+    if (this.volumeIcon) {
+      this.volumeIcon.textContent = clamped === 0 ? "🔇" : "🔊";
+    }
   }
 
-  // il metodo seek viene richiamato al click sulla progress bar 
+  // il metodo seek viene richiamato al click sulla progress bar
   seek(percent) {
     //se almeno una condizione è vera, il metodo viene interrotto
     if (
@@ -512,9 +545,9 @@ class Player {
     this.audio.currentTime = this.audio.duration * clamped;
   }
 
-  // evidenzia il brano in riproduzione 
+  // evidenzia il brano in riproduzione e sincronizza la grafica delle righe con lo stato della riproduzione
   _updateTrackRows() {
-    const rows = document.querySelectorAll(".track-row");
+    const rows = document.querySelectorAll(".track-row"); // identifica le righe dei brani nel DOM
     rows.forEach((row) => {
       const rowTrackId = String(row.dataset.trackId || "");
       const isCurrent =
@@ -546,7 +579,7 @@ const readArray = (key) => {
       return [];
     }
 
-    const parsed = JSON.parse(saved); 
+    const parsed = JSON.parse(saved);
     return parsed;
   } catch (error) {
     console.error("Errore:", error);
@@ -556,184 +589,197 @@ const readArray = (key) => {
 
 const getHistory = () => {
   return readArray(STORAGE_KEY_HISTORY);
-}
-  //funzione per aggiungere un brano alla cronologia al click di play
-  const addToHistory = (track) => {
+};
+//funzione per aggiungere un brano alla cronologia al click di play
+const addToHistory = (track) => {
+  const filtered = getHistory().filter(
+    (t) => Number(t.id) !== Number(track.id),
+  );
 
-    const filtered = getHistory().filter(
-      (t) => Number(t.id) !== Number(track.id),
-    );
+  filtered.unshift(track); //per spostare l'ultima ascoltata in alto
+  const sliced = filtered.slice(0, MAX_HISTORY); //ne salva solo 12
+  localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(sliced));
+};
 
-    filtered.unshift(track); //per spostare l'ultima ascoltata in alto
-    const sliced = filtered.slice(0, MAX_HISTORY); //ne salva solo 12
-    localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(sliced));
-  };
+const getFavourites = () => {
+  return readArray(STORAGE_KEY_FAVOURITES);
+};
 
-  const getFavourites = () => {
-    return readArray(STORAGE_KEY_FAVOURITES);
-  };
+//definisce se un brano si trova già tra i preferiti
+const isFavourite = (trackId) => {
+  return getFavourites().some((t) => Number(t.id) === Number(trackId));
+};
 
-  //definisce se un brano si trova già tra i preferiti
-  const isFavourite = (trackId) => {
-    return getFavourites().some((t) => Number(t.id) === Number(trackId));
-  };
+const toggleFavourite = (track) => {
+  const favs = getFavourites();
+  const exists = favs.some((t) => Number(t.id) === Number(track.id));
 
-  const toggleFavourite = (track) => {
-    const favs = getFavourites();
-    const exists = favs.some((t) => Number(t.id) === Number(track.id));
+  //lista aggiornata
+  let updated;
+  if (exists) {
+    updated = favs.filter((t) => Number(t.id) !== Number(track.id));
+  } else {
+    updated = [track, ...favs];
+  }
 
-    //lista aggiornata
-    let updated;
-    if (exists) {
-      updated = favs.filter((t) => Number(t.id) !== Number(track.id));
-    } else {
-      updated = [track, ...favs];
-    }
-
-    localStorage.setItem(STORAGE_KEY_FAVOURITES, JSON.stringify(updated));
-  };
+  localStorage.setItem(STORAGE_KEY_FAVOURITES, JSON.stringify(updated));
+};
 
 /* ============================ 5b. Reusable components ============================ */
 
-/*
-
 const createTrackCard = (track) => {
-const card = document.createElement("div");
-card.classList.add("card");
-card.dataset.trackId = track.id;
+  const card = document.createElement("div");
+  card.classList.add("card");
+  card.dataset.trackId = track.id;
+  card.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (window.player) {
+      window.player.play(track);
+    }
+  });
+  const cardImageWrap = document.createElement("div");
+  cardImageWrap.classList.add("card-image-wrap");
 
-div.card-image-wrap[img:src = bigArt(track.cover), alt = track.title]
-const cardImageWrap = document.createElement("div");
-cardImageWrap.classList.add("card-image-wrap");
+  const cardImg = document.createElement("img");
+  cardImg.src = bigArt(track.cover);
+  cardImg.alt = track.title;
 
-const cardImg = document.createElement("img");
-cardImg.src = bigArt(track.cover);
-cardImg.alt = track.title;
+  cardImageWrap.appendChild(cardImg);
 
-cardImageWrap.appendChild(cardImg);
+  //button.card-play["▶"]
+  const cardPlay = document.createElement("button");
+  cardPlay.classList.add("card-play");
+  cardPlay.textContent = "▶";
+  cardPlay.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (window.player) {
+      window.player.play(track);
+    }
+  });
 
-button.card-play["▶"]
+  //button.card-fav["♡"]
+  const cardFav = document.createElement("button");
+  cardFav.classList.add("card-fav");
+  cardFav.textContent = "♡";
+  cardFav.classList.toggle("is-fav", isFavourite(track.id));
+  cardFav.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleFavourite(track);
+    cardFav.classList.toggle("is-fav", isFavourite(track.id));
+  });
 
-button.card-fav["♡"] = is-fav isFavourite(track.id) 
+  const cardTitle = document.createElement("p");
+  cardTitle.classList.add("card-title");
+  cardTitle.textContent = track.title;
 
-p.card-title[track.title]
+  const cardSub = document.createElement("p");
+  cardSub.classList.add("card-sub");
+  cardSub.textContent = track.artist;
 
-p.card-sub[track.artist]
+  //-appendChild in ordine: riquadro(img), card(riquadro + play + cuore + titolo + artista)-
 
--appendChild in ordine: riquadro(img), card(riquadro + play + cuore + titolo + artista)-
+  card.appendChild(cardImageWrap);
+  card.appendChild(cardPlay);
+  card.appendChild(cardFav);
+  card.appendChild(cardTitle);
+  card.appendChild(cardSub);
 
-wrap.appendChild(img) 
-card.appendChild div.card-image-wrap
-card.appendChild button.card-play["▶"]
-card.appendChild button.card-fav["♡"] = is-fav
-card.appendChild p.card-title[track.title]
-card.appendChild p.card-sub[track.artist]
+  return card;
+};
 
-return card;
+/* ============================ 6. Render sidebar ============================ */
 
-}
+// renderSidebar(activePage per evidenziare il link attivo)
 
-*/
+const renderSidebar = (activePage) => {
+  const sidebar = document.querySelector(".sidebar");
+  if (!sidebar) return;
 
-  /* ============================ 6. Render sidebar ============================ */
+  // svuota la sidebar
+  sidebar.replaceChildren();
 
-  /*
-    renderSidebar(activePage)
-    - activePage: "home" | "search" | "library" (per evidenziare il link attivo)
-  */
-  const renderSidebar = (activePage) => {
-    const sidebar = document.querySelector(".sidebar");
-    if (!sidebar) return;
+  // brand
+  const brand = document.createElement("div");
+  brand.classList.add("brand");
 
-    // svuota la sidebar
-    sidebar.replaceChildren();
+  const brandMark = document.createElement("div");
+  brandMark.classList.add("brand-mark");
+  brandMark.textContent = "E";
 
-    // brand
-    const brand = document.createElement("div");
-    brand.classList.add("brand");
+  const brandText = document.createElement("span");
+  brandText.classList.add("brand-text");
+  brandText.textContent = "EpiTunes";
 
-    const brandMark = document.createElement("div");
-    brandMark.classList.add("brand-mark");
-    brandMark.textContent = "E";
+  brand.appendChild(brandMark);
+  brand.appendChild(brandText);
 
-    const brandText = document.createElement("span");
-    brandText.classList.add("brand-text");
-    brandText.textContent = "EpiTunes";
+  // nav
+  const sidebarNav = document.createElement("nav");
+  sidebarNav.classList.add("sidebar-nav");
 
-    brand.appendChild(brandMark);
-    brand.appendChild(brandText);
+  // link home
+  const homeLink = document.createElement("a");
+  homeLink.href = "index.html";
+  homeLink.dataset.page = "home";
 
-    // nav
-    const sidebarNav = document.createElement("nav");
-    sidebarNav.classList.add("sidebar-nav");
+  homeLink.classList.toggle("active", activePage === "home"); //toggle
 
-    // link home
-    const homeLink = document.createElement("a");
-    homeLink.href = "index.html";
-    homeLink.dataset.page = "home";
+  const homeIcon = document.createElement("span");
+  homeIcon.classList.add("ico");
+  homeIcon.textContent = "🏠";
 
-    homeLink.classList.toggle("active", activePage === "home"); //toggle
+  const homeText = document.createElement("span");
+  homeText.textContent = "Home";
 
-    const homeIcon = document.createElement("span");
-    homeIcon.classList.add("ico");
-    homeIcon.textContent = "🏠";
+  homeLink.appendChild(homeIcon);
+  homeLink.appendChild(homeText);
 
-    const homeText = document.createElement("span");
-    homeText.textContent = "Home";
+  // link cerca
+  const searchLink = document.createElement("a");
+  searchLink.href = "search.html";
+  searchLink.dataset.page = "search";
 
-    homeLink.appendChild(homeIcon);
-    homeLink.appendChild(homeText);
+  searchLink.classList.toggle("active", activePage === "search"); //toggle
 
-    // link cerca
-    const searchLink = document.createElement("a");
-    searchLink.href = "search.html";
-    searchLink.dataset.page = "search";
+  const searchIcon = document.createElement("span");
+  searchIcon.classList.add("ico");
+  searchIcon.textContent = "🔍";
 
-    searchLink.classList.toggle("active", activePage === "search"); //toggle
+  const searchText = document.createElement("span");
+  searchText.textContent = "Cerca";
 
-    const searchIcon = document.createElement("span");
-    searchIcon.classList.add("ico");
-    searchIcon.textContent = "🔍";
+  searchLink.appendChild(searchIcon);
+  searchLink.appendChild(searchText);
 
-    const searchText = document.createElement("span");
-    searchText.textContent = "Cerca";
+  sidebarNav.appendChild(homeLink);
+  sidebarNav.appendChild(searchLink);
 
-    searchLink.appendChild(searchIcon);
-    searchLink.appendChild(searchText);
+  // preferiti
+  const sidebarTitle = document.createElement("p");
+  sidebarTitle.classList.add("sidebar-section-title");
+  sidebarTitle.textContent = "I tuoi preferiti";
 
-    sidebarNav.appendChild(homeLink);
-    sidebarNav.appendChild(searchLink);
+  const sidebarFavs = document.createElement("ul");
+  sidebarFavs.classList.add("sidebar-list");
+  sidebarFavs.id = "sidebar-favs";
 
-    // preferiti
-    const sidebarTitle = document.createElement("p");
-    sidebarTitle.classList.add("sidebar-section-title");
-    sidebarTitle.textContent = "I tuoi preferiti";
+  // assemblaggio
+  sidebar.appendChild(brand);
+  sidebar.appendChild(sidebarNav);
+  sidebar.appendChild(sidebarTitle);
+  sidebar.appendChild(sidebarFavs);
+  // TODO (opzionale): popola #sidebar-favs con i titoli dei preferiti
+};
 
-    const sidebarFavs = document.createElement("ul");
-    sidebarFavs.classList.add("sidebar-list");
-    sidebarFavs.id = "sidebar-favs";
+/* ============================ 7. Inizializzazione ============================ */
 
-    // assemblaggio
-    sidebar.appendChild(brand);
-    sidebar.appendChild(sidebarNav);
-    sidebar.appendChild(sidebarTitle);
-    sidebar.appendChild(sidebarFavs);
-    // TODO (opzionale): popola #sidebar-favs con i titoli dei preferiti
-  };
-
-  /* ============================ 7. Inizializzazione ============================ */
-
-  /*
-    initPage(activePage)
+/* initPage(activePage)
     - Chiamata da home.js / search.js / album.js / artist.js
-    - Monta sidebar, monta player, restituisce il player per essere usato.
-  */
-  const initPage = (activePage) => {
-    renderSidebar(activePage);
-    const player = new Player();
-    player.mount();
-    window.player = player;
-    return player;
-  };
-
-
+    - Monta sidebar, monta player, restituisce il player per essere usato. */
+const initPage = (activePage) => {
+  renderSidebar(activePage);
+  const player = new Player();
+  player.mount();
+  window.player = player;
+  return player;
+};

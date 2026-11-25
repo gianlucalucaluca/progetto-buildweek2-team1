@@ -52,6 +52,10 @@ button {
   cursor: pointer;
 }
 
+#error{
+  color: red;
+}
+
 /* ============================ Layout 3 zone ============================ */
 
 .app {
@@ -223,7 +227,7 @@ button {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  gap: 16px; 
 }
 
 /* ============================ Card ============================ */
