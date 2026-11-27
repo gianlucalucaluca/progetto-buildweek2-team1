@@ -7,7 +7,7 @@ L'app usa la **iTunes Search API** per cercare brani, album e artisti e riprodur
 
 **Stato del progetto:** in fase di sviluppo. Questo file viene aggiornato man mano che il progetto viene realizzato.
 
-**Sito online:** 
+**Sito online:** https://francescamorrone.github.io/epitune-bw2/
 
 ## Indice
 
@@ -90,7 +90,7 @@ L'applicazione è divisa in tre zone fisse (sidebar, contenuto, player) e quattr
 **1. Clona il repository:**
 
 ```bash
-git clone _da compilare con l'URL della repo_
+git clone https://github.com/gianlucalucaluca/progetto-buildweek2-team1
 ```
 
 **2. Apri l'applicazione:** apri `index.html` con **Live Server** su VS Code. Serve una connessione a internet per i dati di iTunes.
