@@ -19,8 +19,9 @@ L'app usa la **iTunes Search API** per cercare brani, album e artisti e riprodur
 6. [Architettura](#architettura)
 7. [Albero del DOM](#albero-del-dom)
 8. [Come funziona](#come-funziona)
-9. [Convenzioni di codice](#convenzioni-di-codice)
-10. [Il Team 1 e il flusso di lavoro](#il-team-1-e-il-flusso-di-lavoro)
+9. [Implementazioni JavaScript](#implementazioni-javascript)
+10. [Convenzioni di codice](#convenzioni-di-codice)
+11. [Il Team 1 e il flusso di lavoro](#il-team-1-e-il-flusso-di-lavoro)
 
 ---
 
@@ -608,6 +609,289 @@ La navigazione è gestita attraverso la sidebar e la topbar, condivise da tutte 
 - La ricerca effettuata dalla topbar viene salvata in `localStorage` e, quando necessario, reindirizza l'utente alla pagina `search.html`.
 - Nella pagina di ricerca, il campo della topbar è sincronizzato con la ricerca principale.
 - La funzione `initPage()` centralizza l'inizializzazione dei componenti condivisi, della navigazione e del player musicale.
+
+## Implementazioni JavaScript
+
+Di seguito vengono riportate le implementazioni più significative
+del progetto, con particolare attenzione alla logica applicativa,
+alla gestione dei dati e all'interazione con l'utente.
+
+#### 1. Programmazione a oggetti (OOP)
+
+Le classi modello trasformano i dati restituiti dall'API
+in oggetti con proprietà uniformi e facilmente riutilizzabili.
+
+```javascript
+class Track {
+  constructor(raw) {
+    this.id = raw.trackId;
+    this.title = raw.trackName;
+    this.artist = raw.artistName;
+    this.album = raw.collectionName;
+    this.albumId = raw.collectionId;
+    this.artistId = raw.artistId;
+    this.cover = raw.artworkUrl100;
+    this.previewUrl = raw.previewUrl;
+    this.durationMs = raw.trackTimeMillis;
+  }
+}
+```
+
+#### 2. Gestione asincrona delle richieste API
+
+Utilizzo di `async/await` e `try/catch` per centralizzare
+le richieste HTTP e gestire eventuali errori.
+
+```javascript
+const fetchJSON = async (url) => {
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Errore HTTP: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Errore fetchJSON:", error);
+    return { results: [], resultCount: 0 };
+  }
+};
+```
+
+#### 3. Ottimizzazione della ricerca (Debounce)
+
+Utilizzo di closure, rest operator, spread operator e timer
+per evitare richieste API ad ogni carattere digitato.
+
+```javascript
+const debounce = (fn, ms) => {
+  let timerId = null;
+
+  return (...args) => {
+    clearTimeout(timerId);
+    timerId = setTimeout(() => fn(...args), ms);
+  };
+};
+```
+
+#### 4. Navigazione dinamica attraverso l'URL
+
+Passaggio dell'identificativo dell'artista attraverso
+l'indirizzo della pagina.
+
+```javascript
+cardSub.href = "artist.html?id=" + track.artistId;
+```
+
+Recupero dell'identificativo nelle pagine Album e Artista:
+
+```javascript
+const id = new URLSearchParams(window.location.search).get("id");
+```
+
+L'identificativo viene utilizzato per effettuare una richiesta
+all'API e popolare dinamicamente la pagina di dettaglio,
+riutilizzando la stessa struttura HTML.
+
+#### 5. Gestione della coda di riproduzione
+
+La coda permette di riprodurre i brani in base alla sezione
+selezionata, mantenendo in memoria l'array e l'indice corrente.
+
+```javascript
+setQueue(tracks, startIndex = 0) {
+  this.trackQueue = tracks;
+  this.currentIndex = startIndex;
+
+  if (this.shuffleEnabled) {
+    this.createShuffleOrder();
+  }
+}
+
+playFromQueue(index) {
+  const track = this.trackQueue[index];
+
+  if (!track) return;
+
+  this.currentIndex = index;
+
+  if (this.shuffleEnabled) {
+    this.shufflePosition = this.shuffleOrder.indexOf(index);
+  }
+
+  this.play(track);
+}
+```
+
+#### 6. Riproduzione casuale (Shuffle)
+
+Utilizzo dell'algoritmo Fisher-Yates per mescolare gli indici
+dei brani senza modificare l'ordine originale della coda
+e mantenendo il brano corrente come primo elemento.
+
+```javascript
+createShuffleOrder() {
+  this.shuffleOrder = [];
+
+  for (let i = 0; i < this.trackQueue.length; i++) {
+    if (i !== this.currentIndex) {
+      this.shuffleOrder.push(i);
+    }
+  }
+
+  for (let i = this.shuffleOrder.length - 1; i > 0; i--) {
+    const randomIndex = Math.floor(Math.random() * (i + 1));
+
+    const temp = this.shuffleOrder[i];
+    this.shuffleOrder[i] = this.shuffleOrder[randomIndex];
+    this.shuffleOrder[randomIndex] = temp;
+  }
+
+  if (this.currentIndex !== -1) {
+    this.shuffleOrder.unshift(this.currentIndex);
+    this.shufflePosition = 0;
+  } else {
+    this.shufflePosition = -1;
+  }
+}
+```
+
+#### 7. Gestione della ripetizione (Repeat)
+
+Gestione di tre modalità di riproduzione attraverso
+l'evento `ended` dell'elemento audio:
+
+- `one`: ripetizione del brano corrente.
+- `all`: ripetizione dell'intera coda.
+- `off`: interruzione della riproduzione.
+
+```javascript
+this.audio.addEventListener("ended", () => {
+  if (this.repeatMode === "one") {
+    this.play(this.currentTrack);
+    return;
+  }
+
+  if (this.repeatMode === "all" && this.trackQueue.length > 0) {
+    this.nextTrack();
+    return;
+  }
+
+  this.isPlaying = false;
+
+  if (this.btnToggle) this.btnToggle.textContent = "▶";
+  if (this.progressFill) this.progressFill.style.width = "0%";
+  if (this.timeCurrent) this.timeCurrent.textContent = "0:00";
+
+  this._updateTrackRows();
+});
+```
+
+#### 8. Gestione interattiva del volume
+
+Utilizzo degli eventi del mouse per regolare il volume
+attraverso click e trascinamento.
+
+```javascript
+if (this.volumeBar) {
+  const updateVolume = (e) => {
+    const barWidth = this.volumeBar.clientWidth;
+
+    if (barWidth <= 0) return;
+
+    this.setVolume(e.offsetX / barWidth);
+  };
+
+  this.volumeBar.addEventListener("click", updateVolume);
+
+  this.volumeBar.addEventListener("mousemove", (e) => {
+    if (e.buttons !== 1) return;
+
+    updateVolume(e);
+  });
+}
+```
+
+Il valore viene limitato all'intervallo compreso tra 0 e 1,
+sincronizzando il volume effettivo con l'interfaccia grafica.
+
+```javascript
+setVolume(v) {
+  const clamped = Math.max(0, Math.min(1, v));
+
+  if (this.audio) this.audio.volume = clamped;
+  if (this.volumeFill)
+    this.volumeFill.style.width = `${clamped * 100}%`;
+
+  if (this.volumeIcon) {
+    this.volumeIcon.textContent = clamped === 0 ? "🔇" : "🔊";
+  }
+}
+```
+
+#### 9. Gestione dei preferiti ed eventi personalizzati
+
+Utilizzo dei metodi `some()`, `filter()`, dello spread operator
+e dell'operatore ternario per aggiungere o rimuovere i brani
+dai preferiti.
+
+I dati vengono salvati nel `localStorage` e l'evento
+personalizzato `favouritesUpdated` permette di aggiornare
+i componenti interessati senza ricaricare la pagina.
+
+```javascript
+const toggleFavourite = (track) => {
+  const favs = getFavourites();
+  const exists = favs.some(
+    (t) => Number(t.id) === Number(track.id)
+  );
+
+  const updated = exists
+    ? favs.filter((t) => Number(t.id) !== Number(track.id))
+    : [track, ...favs];
+
+  localStorage.setItem(
+    STORAGE_KEY_FAVOURITES,
+    JSON.stringify(updated)
+  );
+
+  window.dispatchEvent(new CustomEvent("favouritesUpdated"));
+};
+```
+
+Intercettazione dell'evento:
+
+```javascript
+window.addEventListener(
+  "favouritesUpdated",
+  renderSidebarFavourites
+);
+```
+
+#### 10. Sincronizzazione tra logica e interfaccia grafica
+
+Utilizzo di `dataset` e `classList.toggle()` per evidenziare
+il brano attualmente in riproduzione, confrontando
+gli identificativi dei brani.
+
+```javascript
+_updateTrackRows() {
+  const rows = document.querySelectorAll(".track-row");
+
+  rows.forEach((row) => {
+    const rowTrackId = String(row.dataset.trackId || "");
+
+    const isCurrent =
+      this.currentTrack &&
+      this.isPlaying &&
+      rowTrackId !== "" &&
+      rowTrackId === String(this.currentTrack.id);
+
+    row.classList.toggle("is-playing", Boolean(isCurrent));
+  });
+}
+```
 
 ### Aspetto grafico
 
