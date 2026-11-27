@@ -7,7 +7,7 @@ L'app usa la **iTunes Search API** per cercare brani, album e artisti e riprodur
 
 **Stato del progetto:** in fase di sviluppo. Questo file viene aggiornato man mano che il progetto viene realizzato.
 
-**Sito online:** _da compilare con il link di GitHub Pages_
+**Sito online:** 
 
 ## Indice
 
@@ -1065,7 +1065,7 @@ di movimento ridotto.
     *::after {
         animation: none !important;
         transition: none !important;
-    }
+    }  
 }
 ```
 ## Convenzioni di codice
