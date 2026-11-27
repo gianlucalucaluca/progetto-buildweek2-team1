@@ -7,7 +7,7 @@ L'app usa la **iTunes Search API** per cercare brani, album e artisti e riprodur
 
 **Stato del progetto:** in fase di sviluppo. Questo file viene aggiornato man mano che il progetto viene realizzato.
 
-**Sito online:** https://francescamorrone.github.io/epitune-bw2/
+**Sito online:** https://gianlucalucaluca.github.io/progetto-buildweek2-team1/
 
 ## Indice
 
